@@ -10,9 +10,11 @@ capture = cv.VideoCapture('new.mp4')
 frame_limits = []
 visibility_graph = []
 vertices = []
+dilated_obstacle_list = []
+dilated_map = []
 
 def setup():
-    global capture, optimal_path, frame_limits, visibility_graph, vertices
+    global capture, optimal_path, frame_limits, visibility_graph, vertices, dilated_obstacle_list, dilated_map
 
     valid_image = False
     while not valid_image:
@@ -42,7 +44,7 @@ print(optimal_path)
 thymio_cam_pos = []
 
 def cam_thread():
-    global capture, optimal_path, frame_limits, visibility_graph, vertices
+    global capture, optimal_path, frame_limits, visibility_graph, vertices, dilated_obstacle_list, dilated_map
 
     show_contours = False
     show_polygones = False
@@ -57,15 +59,17 @@ def cam_thread():
 
         bounded_frame = frame[frame_limits[0]: frame_limits[1], frame_limits[2]: frame_limits[3]]
 
-        modified_frame = draw_on_frame(bounded_frame, show_option)
+        modified_frame = draw_on_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map)
 
-        cv.imshow('Video',modified_frame)
+        cv.imshow('Video', cv.resize(modified_frame, (960, 540)))
         key_pressed = cv.waitKey(60)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
-            show_dilated_polygones = not show_dilated_polygones
+            show_polygones = not show_polygones
         if key_pressed == ord('e'):
+            show_dilated_polygones = not show_dilated_polygones
+        if key_pressed == ord('r'):
             show_visibility_graph = not show_visibility_graph
         if key_pressed == ord('d'):
             break

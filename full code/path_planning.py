@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
     path = []
 
