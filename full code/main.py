@@ -150,7 +150,6 @@ def kalman_thread():
 
     mu_prev = mu
     sig_prev = sig_init
-    thymio_visible = False
 
     while True:
         u = speed_conv*motor_cmd
