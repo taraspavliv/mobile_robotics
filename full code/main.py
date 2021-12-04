@@ -43,7 +43,7 @@ def setup():
 
     #for kalman filter, we iniate the mu
     mu_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts to mm
-    mu = np.array([mu_pos_estim[0],mu_pos_estim[1],0.,0.,thymio_state[2],0.])
+    #mu = np.array([mu_pos_estim[0],mu_pos_estim[1],0.,0.,thymio_state[2],0.])
 
     #we build the visibility graph
     visibility_graph,start_idx,targets_idx_list,vertices = vis_graph([thymio_state[0], thymio_state[1]],targets_list,obstacles_list,dilated_obstacle_list,dilated_map)
@@ -76,7 +76,7 @@ def cam_thread():
     global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
-    img_scale = 0.7
+    img_scale = 0.5
     #options on what to display
     show_contours = False
     show_polygones = False
@@ -110,7 +110,7 @@ def cam_thread():
         cv.imshow('Video', cv.resize(modified_frame, dim))
 
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(200)
+        key_pressed = cv.waitKey(1000)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -137,7 +137,7 @@ threading.Thread(target=cam_thread).start()
 def kalman_thread():
     global mu, thymio_cam_state, motor_cmd, thymio_visible, stop_threads
     #Convert speed commands in mm/s
-    speed_conv = 0.33478260869565216
+    speed_conv = 0.45
     
     #J'essaie avec des valeudrs au bol...
     sig_init = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
@@ -152,7 +152,8 @@ def kalman_thread():
     sig_prev = sig_init
 
     while True:
-        u = speed_conv*motor_cmd
+        thymio_visible=False
+        u = speed_conv*np.array([motor_cmd[1], motor_cmd[0]])
         meas = (thymio_cam_state[0], thymio_cam_state[1])
         (mu,sig) = kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, thymio_visible)
         mu_prev = np.concatenate(np.transpose(mu))
@@ -167,24 +168,50 @@ threading.Thread(target=kalman_thread).start()
 #Mu position mm, speed mm/s, angle rad, vitesse angulaire
 
 async def navigation_thread():
-    global motor_cmd, mu, optimal_path, stop_threads
+    global motor_cmd, mu, optimal_path
     prev_error = 0
-    T1 = 0.5
+    T1 = 0.01
     objectif_number = 0
     node = await client.wait_for_node()
-    await node.lock()
+    #print(optimal_path)
     while True:
+        #optimal_path=np.array([[0,0],[1000,0]])
+        optimal_path=np.array([[0,0],[100,0],[0,0]])
+        #optimal_path=np.array([[0,0],[200,0],[200,200],[0,200],[0,0]])
+        #optimal_path=np.array([[0,0],[-200,0],[-200,-200],[0,-200],[0,0]])
+        await node.lock()
         #pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number
         pos_r = np.array([mu[0][0], mu[1][0]])
-        angle_r = mu[4]
-        motors_cmd, prev_error, objectif_number = navigation(pos_r, angle_r, optimal_path, prev_error, T1, objectif_number)
-        node.send_set_variables(motors_command(motors_cmd))
+        #test#########################################################
+        angle_r = mu[4]#%(2*np.pi)
+        #print("ANGLE",angle_r)
+        #print("POS", pos_r)
+        motor_cmd, prev_error, objectif_number = navigation(pos_r, angle_r, optimal_path, prev_error, T1, objectif_number)
+        node.send_set_variables(motors_command(motor_cmd))
+
+
+
+
+        async def get_mot_comm(s):   
+            await node.wait_for_variables({str(s)})
+            return node[s]
+        motor_left=await get_mot_comm("motor.left.target")
+        motor_right=await get_mot_comm("motor.right.target")
+        motor_cmd=np.array([motor_left, motor_right])
+        print(motor_cmd)
+        #print(motors)
+        
+        #print(pos_r)
+
+
+
+        #print(motors_cmd)
         time.sleep(T1)
         if stop_threads:
             node.send_set_variables(motors_command(np.array([0,0])))
             await node.unlock()
             break
-
+        await node.unlock()
 threading.Thread(target=asyncio.run(navigation_thread())).start()
 
 
