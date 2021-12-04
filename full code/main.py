@@ -9,7 +9,7 @@ from navigation import *
 optimal_path = []
 
 
-capture = cv.VideoCapture('new.mp4')
+capture = cv.VideoCapture('new3.mp4')
 
 stop_threads = False
 
@@ -43,13 +43,13 @@ def setup():
 
     #for kalman filter, we iniate the mu
     mu_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts to mm
-    #mu = np.array([mu_pos_estim[0],mu_pos_estim[1],0.,0.,thymio_state[2],0.])
-
+    mu = np.array([mu_pos_estim[0],mu_pos_estim[1],0.,0.,thymio_state[2],0.])
+    ##########################################################################################################
     #we build the visibility graph
     visibility_graph,start_idx,targets_idx_list,vertices = vis_graph([thymio_state[0], thymio_state[1]],targets_list,obstacles_list,dilated_obstacle_list,dilated_map)
 
     #create an array of distance between all pairs of target and the thymio start position
-    distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx,[1,3])
+    distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx,targets_idx_list)
 
     #calculate the sortest path to go to all targets from start positon
     total_distance, targets_idx_order = shortest_path(0, np.array([0]), distance_array)
@@ -176,9 +176,11 @@ async def navigation_thread():
     #print(optimal_path)
     while True:
         #optimal_path=np.array([[0,0],[1000,0]])
-        optimal_path=np.array([[0,0],[100,0],[0,0]])
+        #optimal_path=np.array([[0,0],[100,0],[0,0]])
         #optimal_path=np.array([[0,0],[200,0],[200,200],[0,200],[0,0]])
-        #optimal_path=np.array([[0,0],[-200,0],[-200,-200],[0,-200],[0,0]])
+
+
+        #optimal_path=np.array([[0,0],[-150,0],[-150,-150],[0,-150],[0,0]])
         await node.lock()
         #pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number
         pos_r = np.array([mu[0][0], mu[1][0]])
@@ -198,7 +200,6 @@ async def navigation_thread():
         motor_left=await get_mot_comm("motor.left.target")
         motor_right=await get_mot_comm("motor.right.target")
         motor_cmd=np.array([motor_left, motor_right])
-        print(motor_cmd)
         #print(motors)
         
         #print(pos_r)

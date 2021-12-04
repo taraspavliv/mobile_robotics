@@ -6,7 +6,7 @@ client = ClientAsync()
 
 
 THRESHOLD_POS=10    #Has to be tuned
-THRESHOLD_ANGLE=0.12
+THRESHOLD_ANGLE=0.05
 SPEED=100
 P=2
 D=0.1
@@ -66,10 +66,9 @@ def error(pos_r, dep, obj):
 
 #When the objectif is reached, one must receive a new objectif and the precedent objectif becomes the depart position
 def reach_obj(pos_r, obj, objectif_number, obj_list):    
-    """ if pos_r[0]>=obj[0]-THRESHOLD_POS and pos_r[0]<=obj[0]+THRESHOLD_POS:
-        if pos_r[1]>=obj[1]-THRESHOLD_POS and pos_r[1]<=obj[1]+THRESHOLD_POS: """
             #next_obj(obj_list, objectif_number)
     if on_point(pos_r, obj):
+        print("YOUPI")
 
         
         return True, objectif_number+1
@@ -89,8 +88,6 @@ def on_point(pos_r, point):
 def optimal_side(angle_r, dep, obj):
     rad=angle(dep,obj)
 
-    print(angle_r, rad)
-    print("INEGALITE:", abs(angle_r-rad), abs(2*np.pi-angle_r+rad))
     #if robot angle is on the left
     if angle_r>=rad:
         #right
@@ -112,23 +109,33 @@ def optimal_side(angle_r, dep, obj):
 #When an objectif is reached, the robot turn on itself until it reaches the good angle.
 def start_angle(angle_r, dep, obj):
     rad = angle(dep, obj)
-    #print("ROBOT",angle_r)
     #The angle is good
     if good_angle(angle_r,dep,obj):
         return np.array([SPEED,SPEED])
         #left
     else:
+        err_angle=speed_angle_err(angle_r,dep,obj)
         if optimal_side(angle_r, dep, obj):
-            print("Left")
             motors=np.array([-SPEED,SPEED])
+            if abs(err_angle)<0.2:
+                motors=np.array([int(-SPEED*err_angle),int(SPEED*err_angle)])
             #err_pos=0
+            
+            #print(motors)
         else:
-            print("Right")
             motors=np.array([SPEED,-SPEED])
+            if abs(err_angle)<0.2:
+                motors=np.array([int(SPEED*err_angle),int(-SPEED*err_angle)])
+            """ if err_angle<0.2:
+                motors=np.array([SPEED/err_angle,-SPEED/err_angle]) """
             #err_pos=0
         
         return motors
         #err_pos
+def speed_angle_err(angle_r, dep, obj):
+    err_angle=angle_r-angle(dep,obj)
+    #print(err_angle)
+    return err_angle
 
 def good_angle(angle_r,dep,obj):
     rad = angle(dep, obj)
@@ -175,11 +182,6 @@ def motors_corr(prev_err_pos, err_pos, dep, obj, pos_r, T):
     else:
         return np.array([SPEED,SPEED]) """
 
-###########################################################################################################
-#Ajouter une fonction qui retourne la vitesse des moteurs en cas de navigation locale
-#Lui dire de commencer par s'orienter
-#Debugg
-###########################################################################################################
     
 def navigation(pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number):
     if objectif_number==len(obj_list)-1 :#and reach_obj(pos_r, obj_list[objectif_number-1], objectif_number, obj_list):
@@ -188,6 +190,7 @@ def navigation(pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number):
         """ if objectif_number==0 and pos_r[0]==dep[0] and pos_r[1]==dep[1]:
         motors=start_angle(angle_r,dep,obj) """
     else:
+        angle_r=angle_r%(np.pi*2)
         #print("ANGLE",angle_r)
         #print(objectif_number)
         
@@ -202,7 +205,6 @@ def navigation(pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number):
         if reached or (on_point(pos_r, dep)):
             #dep,obj=next_obj(obj_list, objectif_number)
             motors=start_angle(angle_r, dep, obj)
-
 
 
         #return motors, err_pos, objectif_number
