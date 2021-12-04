@@ -74,11 +74,11 @@ def get_color_contour(frame, color):
     return contours
 
 
-def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map):
+def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, kalman_pos):
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
 
     _, map_contour = cam_get_bounded_frame(blurred_frame, show_options[0], show_options[1])
-    thymio_pos, thymio_angle ,thymio_visible, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
+    thymio_pos, thymio_angle, thymio_visible, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
     thymio_state = [thymio_pos[0], thymio_pos[1], thymio_angle]
 
     if thymio_visible:
@@ -95,7 +95,10 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map):
         dilated_map_poly = list((int(point[0]),int(point[1])) for point in list(zip(x_map, y_map)))
         draw_polygone(blurred_frame, dilated_map_poly, "white")
 
-    return blurred_frame, thymio_state
+    if show_options[4]:
+        cv.circle(blurred_frame, kalman_pos, 7, (255, 0, 255), -1)
+
+    return blurred_frame, thymio_state, thymio_visible
 
 
 def draw_polygone(frame, polygone_points, color):
@@ -227,6 +230,8 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False
 def convert_to_mm(y_axis_size, scale, coords_px):
     return [coords_px[0]*scale, (y_axis_size-coords_px[1])*scale]
 
+def convert_to_px(y_axis_size, scale, coords_mm):
+    return [int(coords_mm[0]/scale), int(y_axis_size-coords_mm[1]/scale)]
 
 def object_detection(frame):
     #blur image to have less noise

@@ -30,68 +30,86 @@ thymio_cam_state = [0,0,0] #ideally pos_x, pos_y, angle
 thymio_visible = False
 
 def setup():
-    global capture, convert_px_mm, optimal_path, frame_limits, visibility_graph, vertices, dilated_obstacle_list, dilated_map, mu
+    global capture, convert_px_mm, optimal_path, frame_limits
+    global visibility_graph, vertices, dilated_obstacle_list, dilated_map, mu
 
+    #we will analyze the first valid image
     valid_image = False
     while not valid_image:
         valid_image, first_image = capture.read()
     
+    #we detect all objects and the dilated versions for the visibility graph
     thymio_state,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits, convert_px_mm = object_detection(first_image)
 
     #for kalman filter, we iniate the mu
     mu_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts to mm
     mu = np.array([mu_pos_estim[0],mu_pos_estim[1],0.,0.,thymio_state[2],0.])
 
+    #we build the visibility graph
     visibility_graph,start_idx,targets_idx_list,vertices = vis_graph([thymio_state[0], thymio_state[1]],targets_list,obstacles_list,dilated_obstacle_list,dilated_map)
 
+    #create an array of distance between all pairs of target and the thymio start position
     distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx,[1,3])
 
+    #calculate the sortest path to go to all targets from start positon
     total_distance, targets_idx_order = shortest_path(0, np.array([0]), distance_array)
 
-    print(targets_idx_order)
-
-    #print(total_distance)
-
+    #save the optimal path
     for i in range(len(targets_idx_order)-1):
         for j in range(len(path_array[i][int(targets_idx_order[i+1])])):
             if i != 0 and j == 0: 
                 continue
-            #print(path_array[i][i+1][j])
             optimal_path.append(vertices[path_array[i][int(targets_idx_order[i+1])][j]])
 
+    #convert the optimal path (for now in pixels) to optimal path in millimeters
     optimal_path_mm = []
     for point in optimal_path:
         point_in_mm = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [point[0],point[1]]) #converts to mm
         optimal_path_mm.append(point_in_mm)
     optimal_path = np.array(optimal_path_mm)
-    print(optimal_path_mm)
+
 
 setup()
 
-
+#responsible to find the thymio on the camera and to display the important information on a video
 def cam_thread():
-    global capture, convert_px_mm, optimal_path, frame_limits, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
+    global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu
+    global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
     img_scale = 0.7
-
+    #options on what to display
     show_contours = False
     show_polygones = False
     show_dilated_polygones = False
     show_visibility_graph = False
-    show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph]
+    show_kalman_estimation = False
+    show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
     while True:
 
+        #read the image
         valid_image, frame = capture.read()
         if stop_threads or not valid_image:
             stop_threads = True
             break
 
+        #cut borders of the video to display only the terrain
         bounded_frame = frame[frame_limits[0]: frame_limits[1], frame_limits[2]: frame_limits[3]]
 
-        modified_frame, thymio_state = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map)
-        thymio_cam_state = thymio_state
+        #transform the esimated kalman position to pixel values
+        kalman_est_pos = convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, [mu[0], mu[1]]) #converts kalman estimated pos to pixel pos
+
+        #analyze the video image to find the thymio (if he's visible) and to draw some information depending on the options 
+        modified_frame, thymio_state, thymio_visible = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map, kalman_est_pos)
+
+        #convert the found thymio from the video to position in millimeter
+        thymio_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts thymio pos to mm
+        thymio_cam_state = [thymio_pos_estim[0], thymio_pos_estim[1] ,thymio_state[2]] 
+    
+        #rescale the video
         dim = (int(modified_frame.shape[1]*img_scale), int(modified_frame.shape[0]*img_scale))
         cv.imshow('Video', cv.resize(modified_frame, dim))
+        
+        #keys to toggle shown information options
         key_pressed = cv.waitKey(5)
         if key_pressed == ord('q'):
             show_contours = not show_contours
@@ -101,11 +119,13 @@ def cam_thread():
             show_dilated_polygones = not show_dilated_polygones
         if key_pressed == ord('r'):
             show_visibility_graph = not show_visibility_graph
+        if key_pressed == ord('t'):
+            show_kalman_estimation = not show_kalman_estimation
         if key_pressed == ord('d'):
             stop_threads = True
             break
 
-        show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph]
+        show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
 
 threading.Thread(target=cam_thread).start()
 
@@ -120,9 +140,8 @@ def kalman_thread():
     speed_conv = 0.33478260869565216
     
     #J'essaie avec des valeudrs au bol...
-    #mu_init = np.array([374.,1503.,0.,0.,-0.885,0.]) #inital state at zero
     sig_init = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
-    T1 = 1/30 #10Hz
+    T1 = 1/30 #33Hz
     r = 47 #mm
     #uncertainty on state
     R = np.array([[0.01,0.,0.,0.,0.,0.],[0.,0.01,0.,0.,0.,0.],[0.,0.,0.01,0.,0.,0.],[0.,0.,0.,0.01,0.,0.],[0.,0.,0.,0.,0.0000000001,0.],[0.,0.,0.,0.,0.,0.01]])
@@ -131,6 +150,7 @@ def kalman_thread():
 
     mu_prev = mu
     sig_prev = sig_init
+    thymio_visible = False
 
     while True:
         u = speed_conv*motor_cmd
@@ -150,7 +170,7 @@ threading.Thread(target=kalman_thread).start()
 async def navigation_thread():
     global motor_cmd, mu, optimal_path, stop_threads
     prev_error = 0
-    T1 = 0.01
+    T1 = 0.3
     objectif_number = 0
     node = await client.wait_for_node()
     await node.lock()
@@ -161,6 +181,7 @@ async def navigation_thread():
         
         motors_cmd, prev_error, objectif_number = navigation(pos_r, angle_r, optimal_path, prev_error, T1, objectif_number)
         node.send_set_variables(motors_command(motors_cmd))
+        motor_cmd = [100, 100]
         time.sleep(T1)
         if stop_threads:
             node.send_set_variables(motors_command(np.array([0,0])))
