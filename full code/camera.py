@@ -1,3 +1,4 @@
+from math import pi
 import numpy as np 
 from cv2 import cv2 as cv
 from matplotlib import pyplot as plt
@@ -58,8 +59,8 @@ def get_color_contour(frame, color):
         lower_color = np.array([125,110,90])
         upper_color = np.array([230,220,220])
     elif color == "blue":
-        lower_color = np.array([50,30,20])
-        upper_color = np.array([90,55,50])
+        lower_color = np.array([60,30,20])#np.array([50,30,20])
+        upper_color = np.array([115,75,80])#np.array([90,55,50])
     elif color == "red":
         lower_color = np.array([70,40,150])
         upper_color = np.array([130,115,200])
@@ -73,13 +74,16 @@ def get_color_contour(frame, color):
     return contours
 
 
-def draw_on_frame(frame, show_options, dilated_obstacle_list, dilated_map):
+def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map):
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
-    
+
     _, map_contour = cam_get_bounded_frame(blurred_frame, show_options[0], show_options[1])
-    _, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
-    cam_get_targets(blurred_frame, show_options[0], show_options[1])
-    cam_get_obstacles(blurred_frame, thymio_radius, show_options[0], show_options[1])
+    thymio_pos, thymio_angle ,thymio_visible, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
+    thymio_state = [thymio_pos[0], thymio_pos[1], thymio_angle]
+
+    if thymio_visible:
+        cam_get_targets(blurred_frame, show_options[0], show_options[1])
+        cam_get_obstacles(blurred_frame, thymio_radius, show_options[0], show_options[1])
 
     if show_options[2]:
         for dilated_obstacle in dilated_obstacle_list:
@@ -91,7 +95,7 @@ def draw_on_frame(frame, show_options, dilated_obstacle_list, dilated_map):
         dilated_map_poly = list((int(point[0]),int(point[1])) for point in list(zip(x_map, y_map)))
         draw_polygone(blurred_frame, dilated_map_poly, "white")
 
-    return blurred_frame
+    return blurred_frame, thymio_state
 
 
 def draw_polygone(frame, polygone_points, color):
@@ -99,6 +103,8 @@ def draw_polygone(frame, polygone_points, color):
         color_RGB = (255,255,255)
     elif color == "green":
         color_RGB = (0,255,0)
+    elif color == "blue":
+        color_RGB = (255,0,0)
 
     for i in range(len(polygone_points)-1):
         cv.line(frame, polygone_points[i], polygone_points[i+1], color_RGB, 3)
@@ -130,14 +136,19 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
 
     max_blue_area = 0
     thymio_pos = [0,0]
+    thymio_angle = 0.0
     scale_mm = 1
+    radius = 1
+    blue_zones_counter = 0
     for contour_blue in contours_blue:
         area = cv.contourArea(contour_blue)
         if area > 6000 and area > max_blue_area:
+            blue_zones_counter += 1
             max_blue_area = area
             (x,y),radius = cv.minEnclosingCircle(contour_blue)
+            (rect_cent, (rect_width, rect_height), rect_angle) = cv.minAreaRect(contour_blue)
             center = (int(x),int(y))
-            scale_mm = 140/radius
+            scale_mm = 140/(2*radius)
             radius = int(radius)
             thymio_pos = center
             if show_contour:
@@ -145,8 +156,16 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
             if show_circle:
                 cv.circle(frame,center,radius,(255,0,0),2)
                 cv.circle(frame, center, 7, (255, 0, 0), -1)
+                box = cv.boxPoints((rect_cent, (rect_width, rect_height), rect_angle))
+                box_points = list((int(point[0]),int(point[1])) for point in box)
+                draw_polygone(frame,box_points,"blue")
+            thymio_angle = np.arctan2(center[1] - rect_cent[1],rect_cent[0] - center[0]) #is in rad
+    thymio_visible = True
 
-    return thymio_pos, radius, scale_mm
+    if blue_zones_counter == 0:
+        thymio_visible = False
+
+    return thymio_pos, thymio_angle, thymio_visible, radius, scale_mm
 
 
 def cam_get_contour(map_contour, radius):
@@ -204,6 +223,11 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False
 
     return obstacles_list, dilated_obstacle_list
 
+
+def convert_to_mm(y_axis_size, scale, coords_px):
+    return [coords_px[0]*scale, (y_axis_size-coords_px[1])*scale]
+
+
 def object_detection(frame):
     #blur image to have less noise
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
@@ -212,7 +236,8 @@ def object_detection(frame):
     #reduce the working frame to the boundaries
     bounded_frame = blurred_frame[frame_limits[0]: frame_limits[1], frame_limits[2]: frame_limits[3]]
     #locate the robot
-    thymio_pos, thymio_radius, scale = cam_locate_thymio(bounded_frame)
+    thymio_pos, thymio_angle, thymio_visible, thymio_radius, scale_mm = cam_locate_thymio(bounded_frame)
+    thymio_state = [thymio_pos[0], thymio_pos[1], thymio_angle]
     #reduce the boundaries so the whole robot stays inside when the center is on the "dilated_map"
     map_contour_polygone, dilated_map = cam_get_contour(map_contour, thymio_radius)
     #locate the targets
@@ -220,4 +245,4 @@ def object_detection(frame):
     #locate the obstacles
     obstacles_list, dilated_obstacle_list  = cam_get_obstacles(bounded_frame, thymio_radius)
 
-    return thymio_pos,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits
+    return thymio_state,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits, scale_mm
