@@ -108,9 +108,9 @@ def cam_thread():
         #rescale the video
         dim = (int(modified_frame.shape[1]*img_scale), int(modified_frame.shape[0]*img_scale))
         cv.imshow('Video', cv.resize(modified_frame, dim))
-        
+
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(5)
+        key_pressed = cv.waitKey(200)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -141,7 +141,7 @@ def kalman_thread():
     
     #J'essaie avec des valeudrs au bol...
     sig_init = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
-    T1 = 1/30 #33Hz
+    T1 = 0.03 #33Hz
     r = 47 #mm
     #uncertainty on state
     R = np.array([[0.01,0.,0.,0.,0.,0.],[0.,0.01,0.,0.,0.,0.],[0.,0.,0.01,0.,0.,0.],[0.,0.,0.,0.01,0.,0.],[0.,0.,0.,0.,0.0000000001,0.],[0.,0.,0.,0.,0.,0.01]])
@@ -169,7 +169,7 @@ threading.Thread(target=kalman_thread).start()
 async def navigation_thread():
     global motor_cmd, mu, optimal_path, stop_threads
     prev_error = 0
-    T1 = 0.3
+    T1 = 0.5
     objectif_number = 0
     node = await client.wait_for_node()
     await node.lock()
@@ -177,10 +177,8 @@ async def navigation_thread():
         #pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number
         pos_r = np.array([mu[0][0], mu[1][0]])
         angle_r = mu[4]
-        
         motors_cmd, prev_error, objectif_number = navigation(pos_r, angle_r, optimal_path, prev_error, T1, objectif_number)
         node.send_set_variables(motors_command(motors_cmd))
-        motor_cmd = [100, 100]
         time.sleep(T1)
         if stop_threads:
             node.send_set_variables(motors_command(np.array([0,0])))
