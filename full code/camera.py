@@ -87,7 +87,7 @@ def get_color_contour(frame, color):
     return contours
 
 
-def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, kalman_pos):
+def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, kalman_state, optimal_path_px):
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
 
     _, map_contour = cam_get_bounded_frame(blurred_frame, show_options[0], show_options[1])
@@ -108,22 +108,33 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
         draw_polygone(blurred_frame, dilated_map_poly, "white")
 
     if show_options[4]:
+        kalman_pos = (kalman_state[0], kalman_state[1])
         cv.circle(blurred_frame, kalman_pos, 7, (255, 0, 255), -1)
+        print(kalman_state)
+        cv.line(blurred_frame, kalman_pos, [int(kalman_pos[0] + 30*np.cos(kalman_state[2])), int(kalman_pos[1] - 30*np.sin(kalman_state[2]))], (255, 0, 255), 2)
+
+    if show_options[5]:
+        draw_polygone(blurred_frame, optimal_path_px, "yellow", False)
 
     return blurred_frame, thymio_state, thymio_visible
 
 
-def draw_polygone(frame, polygone_points, color):
+def draw_polygone(frame, polygone_points, color, closed = True):
     if color == "white":
         color_RGB = (255,255,255)
     elif color == "green":
         color_RGB = (0,255,0)
     elif color == "blue":
         color_RGB = (255,0,0)
+    elif color == "yellow":
+        color_RGB = (0,255,255)
+
 
     for i in range(len(polygone_points)-1):
         cv.line(frame, polygone_points[i], polygone_points[i+1], color_RGB, 3)
-    cv.line(frame, polygone_points[len(polygone_points)-1], polygone_points[0], color_RGB, 3)
+    
+    if closed:
+        cv.line(frame, polygone_points[len(polygone_points)-1], polygone_points[0], color_RGB, 3)
 
 
 def cam_get_bounded_frame(frame, show_contour = False, show_polygone = False):
@@ -228,9 +239,11 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False
                 draw_polygone(frame, pts, "green")
 
     obstacles_boundary = []
-    for geom in area_obstacles.geoms:    
-        xo, yo = geom.exterior.xy
-        obstacles_boundary.append(zip(xo,yo))
+
+    if type(area_obstacles) != Polygon:
+        for geom in area_obstacles.geoms:    
+            xo, yo = geom.exterior.xy
+            obstacles_boundary.append(zip(xo,yo))
 
     obstacles_list = []
     for obstacle in obstacles_boundary :

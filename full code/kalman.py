@@ -33,18 +33,20 @@ def Gjacobian(theta, m1 ,m2, T1, r):
 #Next two steps depend on measurements
 
 def measModel(x,T1,r):
-    h = np.array([0.,0.])
+    h = np.array([0.,0.,0.])
     h[0] = x[0]
     h[1] = x[1]
     return h
 
 def Hjacobian(theta, T1, camState):
-    H = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
+    H = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     H[0,0] = 1
     H[1,1] = 1
+    H[2,4] = 1
     if camState == False:
         H[0,0] = 0
         H[1,1] = 0
+        H[2,4] = 0
     return H
 
 def kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, camState):

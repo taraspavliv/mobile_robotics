@@ -72,7 +72,6 @@ def setup():
         optimal_path_mm.append(point_in_mm)
     optimal_path = np.array(optimal_path_mm)
 
-
 setup()
 
 #responsible to find the thymio on the camera and to display the important information on a video
@@ -86,8 +85,11 @@ def cam_thread():
     show_polygones = False
     show_dilated_polygones = False
     show_visibility_graph = False
+    show_optimal_path = False
     show_kalman_estimation = False
-    show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
+    show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation, show_optimal_path]
+    optimal_path_px = list([int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[0]), int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[1])] for s in optimal_path)
+    print(optimal_path_px)
     while True:
         #read the image
         valid_image, frame = capture.read()
@@ -100,9 +102,10 @@ def cam_thread():
 
         #transform the esimated kalman position to pixel values
         kalman_est_pos = convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, [mu[0], mu[1]]) #converts kalman estimated pos to pixel pos
+        kalman_est = [kalman_est_pos[0], kalman_est_pos[1], mu[4]]
 
         #analyze the video image to find the thymio (if he's visible) and to draw some information depending on the options 
-        modified_frame, thymio_state, thymio_visible = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map, kalman_est_pos)
+        modified_frame, thymio_state, thymio_visible = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map, kalman_est, optimal_path_px)
 
         #convert the found thymio from the video to position in millimeter
         thymio_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts thymio pos to mm
@@ -124,10 +127,12 @@ def cam_thread():
             show_visibility_graph = not show_visibility_graph
         if key_pressed == ord('t'):
             show_kalman_estimation = not show_kalman_estimation
+        if key_pressed == ord('z'):
+            show_optimal_path = not show_optimal_path
         if key_pressed == ord('d'):
             stop_threads = True
             break
-        show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
+        show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation, show_optimal_path]
 
 threading.Thread(target=cam_thread).start()
 
@@ -139,28 +144,34 @@ threading.Thread(target=cam_thread).start()
 def kalman_thread():
     global mu, thymio_cam_state, motor_cmd, thymio_visible, stop_threads
     #Convert speed commands in mm/s
-    speed_conv = 0.45
+    speed_conv = 0.35
     
     #J'essaie avec des valeudrs au bol...
     sig_init = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     T1 = 0.03 #33Hz
     r = 47 #mm
     #uncertainty on state
-    R = np.array([[0.01,0.,0.,0.,0.,0.],[0.,0.01,0.,0.,0.,0.],[0.,0.,0.01,0.,0.,0.],[0.,0.,0.,0.01,0.,0.],[0.,0.,0.,0.,0.0000000001,0.],[0.,0.,0.,0.,0.,0.01]])
+    R = np.array([[0.01,0.,0.,0.,0.,0.],[0.,0.01,0.,0.,0.,0.],[0.,0.,0.01,0.,0.,0.],[0.,0.,0.,0.01,0.,0.],[0.,0.,0.,0.,0.0001,0.],[0.,0.,0.,0.,0.,0.1]])
     #uncertainty on measurement
-    Q = np.array([[0.01,0.],[0.,0.01]])
+    Q = np.array([[0.01,0.,0.],[0.,0.01,0.],[0.,0.,1.]])
 
     mu_prev = mu
     sig_prev = sig_init
 
+
+    
+    startKal = 0
+    endKal = T1
     while True:
-        thymio_visible=False
         u = speed_conv*np.array([motor_cmd[1], motor_cmd[0]])
-        meas = (thymio_cam_state[0], thymio_cam_state[1])
+        meas = (thymio_cam_state[0], thymio_cam_state[1], thymio_cam_state[2])
+        endKal = time.perf_counter() #Added to count time steps
+        T1 = (endKal - startKal) #Added to count time steps 
         (mu,sig) = kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, thymio_visible)
+        startKal = time.perf_counter() #Added to count time steps
         mu_prev = np.concatenate(np.transpose(mu))
         sig_prev = sig
-        time.sleep(T1)
+        time.sleep(0.03)
         if stop_threads:
             break
 
@@ -177,16 +188,9 @@ async def navigation_thread():
     node = await client.wait_for_node()
     #print(optimal_path)
     while True:
-        #optimal_path=np.array([[0,0],[1000,0]])
-        #optimal_path=np.array([[0,0],[100,0],[0,0]])
-        #optimal_path=np.array([[0,0],[200,0],[200,200],[0,200],[0,0]])
-
-
-        #optimal_path=np.array([[0,0],[-150,0],[-150,-150],[0,-150],[0,0]])
         await node.lock()
         #pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number
         pos_r = np.array([mu[0][0], mu[1][0]])
-        #test#########################################################
         angle_r = mu[4]#%(2*np.pi)
         #print("ANGLE",angle_r)
         #print("POS", pos_r)
