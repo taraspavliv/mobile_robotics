@@ -56,19 +56,32 @@ def vis_graph(start,targets,obstacles,polygon_obstacle,polygon_map):
 
 def get_color_contour(frame, color):
     if color == "white":
-        lower_color = np.array([115,115,110])
-        upper_color = np.array([240,240,240])
+        lower_color = np.array([0,0,128]) #np.array([125,110,90])
+        upper_color = np.array([179,46,247]) #np.array([230,220,220])
     elif color == "blue":
-        lower_color = np.array([40,20,15])#np.array([50,30,20])
-        upper_color = np.array([115,65,70])#np.array([90,55,50])
+        lower_color = np.array([96,63,62]) #np.array([60,30,20])#np.array([50,30,20])
+        upper_color = np.array([130,255,255])#np.array([115,75,80])#np.array([90,55,50])
     elif color == "red":
-        lower_color = np.array([55,35,105])
-        upper_color = np.array([130,110,210])
+        lower_color = np.array([130,100,100]) #np.array([70,40,150])
+        upper_color = np.array([179,255,255])#np.array([130,115,200])
     elif color == "green":
-        lower_color = np.array([60,65,30])
-        upper_color = np.array([100,135,85])
+        lower_color = np.array([45,60,0])#np.array([50,80,35])
+        upper_color = np.array([90,140,140])#np.array([150,155,100])
+    # if color == "white":
+    #     lower_color = np.array([115,115,110])
+    #     upper_color = np.array([240,240,240])
+    # elif color == "blue":
+    #     lower_color = np.array([40,20,15])#np.array([50,30,20])
+    #     upper_color = np.array([115,65,70])#np.array([90,55,50])
+    # elif color == "red":
+    #     lower_color = np.array([55,35,105])
+    #     upper_color = np.array([130,110,210])
+    # elif color == "green":
+    #     lower_color = np.array([60,65,30])
+    #     upper_color = np.array([100,135,85])
     else:
         return [0]
+    frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
     mask_white = cv.inRange(frame, lower_color, upper_color)
     contours, _= cv.findContours(mask_white, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
     return contours
@@ -144,7 +157,7 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
     blue_zones_counter = 0
     for contour_blue in contours_blue:
         area = cv.contourArea(contour_blue)
-        if area > 6000 and area > max_blue_area:
+        if area > 1000 and area > max_blue_area:
             blue_zones_counter += 1
             max_blue_area = area
             (x,y),radius = cv.minEnclosingCircle(contour_blue)
@@ -182,7 +195,7 @@ def cam_get_targets(frame, show_contour = False, show_center = False):
     target_list = []
     for contour_red in contours_red:
         area = cv.contourArea(contour_red)
-        if area > 6000:
+        if area > 1000:
             M = cv.moments(contour_red)
             if M['m00'] != 0:
                 cx = int(M['m10']/M['m00'])
@@ -203,7 +216,7 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False
     dilated_obstacle_list = []
     for contour_green in contours_green:
         area = cv.contourArea(contour_green)
-        if area > 6000:
+        if area > 1000:
             pts = np.squeeze(polygon(contour_green))
             pol = Polygon(pts)
             dilated_obstacle = pol.buffer(radius, join_style=3 ,single_sided=True)

@@ -9,7 +9,7 @@ from navigation import *
 optimal_path = []
 
 
-capture = cv.VideoCapture(1 + cv.CAP_DSHOW) #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
+capture = cv.VideoCapture( 1 + cv.CAP_DSHOW) #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
 capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
 stop_threads = False
@@ -80,7 +80,7 @@ def cam_thread():
     global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
-    img_scale = 0.7
+    img_scale = 1
     #options on what to display
     show_contours = False
     show_polygones = False
@@ -89,8 +89,6 @@ def cam_thread():
     show_kalman_estimation = False
     show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
     while True:
-        print("cam")
-
         #read the image
         valid_image, frame = capture.read()
         if stop_threads or not valid_image:
@@ -115,7 +113,7 @@ def cam_thread():
         cv.imshow('Video', cv.resize(modified_frame, dim))
 
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(50)
+        key_pressed = cv.waitKey(30)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -129,7 +127,6 @@ def cam_thread():
         if key_pressed == ord('d'):
             stop_threads = True
             break
-
         show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
 
 threading.Thread(target=cam_thread).start()
@@ -157,7 +154,6 @@ def kalman_thread():
     sig_prev = sig_init
 
     while True:
-        print("kalman")
         thymio_visible=False
         u = speed_conv*np.array([motor_cmd[1], motor_cmd[0]])
         meas = (thymio_cam_state[0], thymio_cam_state[1])
@@ -181,7 +177,6 @@ async def navigation_thread():
     node = await client.wait_for_node()
     #print(optimal_path)
     while True:
-        print("nav")
         #optimal_path=np.array([[0,0],[1000,0]])
         #optimal_path=np.array([[0,0],[100,0],[0,0]])
         #optimal_path=np.array([[0,0],[200,0],[200,200],[0,200],[0,0]])
