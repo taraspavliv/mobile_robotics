@@ -9,7 +9,8 @@ from navigation import *
 optimal_path = []
 
 
-capture = cv.VideoCapture('new3.mp4')
+capture = cv.VideoCapture(1 + cv.CAP_DSHOW) #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
+capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
 stop_threads = False
 
@@ -35,8 +36,11 @@ def setup():
 
     #we will analyze the first valid image
     valid_image = False
-    while not valid_image:
+    frame_counter = 0
+    while frame_counter < 20:
         valid_image, first_image = capture.read()
+        if valid_image == True:
+            frame_counter += 1
     
     #we detect all objects and the dilated versions for the visibility graph
     thymio_state,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits, convert_px_mm = object_detection(first_image)
@@ -49,17 +53,17 @@ def setup():
     visibility_graph,start_idx,targets_idx_list,vertices = vis_graph([thymio_state[0], thymio_state[1]],targets_list,obstacles_list,dilated_obstacle_list,dilated_map)
 
     #create an array of distance between all pairs of target and the thymio start position
-    distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx,targets_idx_list)
+    distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx, targets_idx_list)
 
     #calculate the sortest path to go to all targets from start positon
     total_distance, targets_idx_order = shortest_path(0, np.array([0]), distance_array)
 
     #save the optimal path
     for i in range(len(targets_idx_order)-1):
-        for j in range(len(path_array[i][int(targets_idx_order[i+1])])):
+        for j in range(len(path_array[int(targets_idx_order[i])][int(targets_idx_order[i+1])])):
             if i != 0 and j == 0: 
                 continue
-            optimal_path.append(vertices[path_array[i][int(targets_idx_order[i+1])][j]])
+            optimal_path.append(vertices[path_array[int(targets_idx_order[i])][int(targets_idx_order[i+1])][j]])
 
     #convert the optimal path (for now in pixels) to optimal path in millimeters
     optimal_path_mm = []
@@ -76,7 +80,7 @@ def cam_thread():
     global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
-    img_scale = 0.5
+    img_scale = 0.7
     #options on what to display
     show_contours = False
     show_polygones = False
@@ -85,6 +89,7 @@ def cam_thread():
     show_kalman_estimation = False
     show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation]
     while True:
+        print("cam")
 
         #read the image
         valid_image, frame = capture.read()
@@ -110,7 +115,7 @@ def cam_thread():
         cv.imshow('Video', cv.resize(modified_frame, dim))
 
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(1000)
+        key_pressed = cv.waitKey(50)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -152,6 +157,7 @@ def kalman_thread():
     sig_prev = sig_init
 
     while True:
+        print("kalman")
         thymio_visible=False
         u = speed_conv*np.array([motor_cmd[1], motor_cmd[0]])
         meas = (thymio_cam_state[0], thymio_cam_state[1])
@@ -175,6 +181,7 @@ async def navigation_thread():
     node = await client.wait_for_node()
     #print(optimal_path)
     while True:
+        print("nav")
         #optimal_path=np.array([[0,0],[1000,0]])
         #optimal_path=np.array([[0,0],[100,0],[0,0]])
         #optimal_path=np.array([[0,0],[200,0],[200,200],[0,200],[0,0]])

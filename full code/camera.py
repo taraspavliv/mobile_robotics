@@ -2,7 +2,7 @@ from math import pi
 import numpy as np 
 from cv2 import cv2 as cv
 from matplotlib import pyplot as plt
-from shapely.geometry import Polygon 
+from shapely.geometry import MultiPolygon, Polygon 
 from shapely.geometry import LineString
 
 def visible(a,b, polygon_obstacle, polygon_map):
@@ -56,17 +56,17 @@ def vis_graph(start,targets,obstacles,polygon_obstacle,polygon_map):
 
 def get_color_contour(frame, color):
     if color == "white":
-        lower_color = np.array([125,110,90])
-        upper_color = np.array([230,220,220])
+        lower_color = np.array([115,115,110])
+        upper_color = np.array([240,240,240])
     elif color == "blue":
-        lower_color = np.array([60,30,20])#np.array([50,30,20])
-        upper_color = np.array([115,75,80])#np.array([90,55,50])
+        lower_color = np.array([40,20,15])#np.array([50,30,20])
+        upper_color = np.array([115,65,70])#np.array([90,55,50])
     elif color == "red":
-        lower_color = np.array([70,40,150])
-        upper_color = np.array([130,115,200])
+        lower_color = np.array([55,35,105])
+        upper_color = np.array([130,110,210])
     elif color == "green":
-        lower_color = np.array([50,80,35])
-        upper_color = np.array([150,155,100])
+        lower_color = np.array([60,65,30])
+        upper_color = np.array([100,135,85])
     else:
         return [0]
     mask_white = cv.inRange(frame, lower_color, upper_color)
@@ -81,9 +81,8 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
     thymio_pos, thymio_angle, thymio_visible, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
     thymio_state = [thymio_pos[0], thymio_pos[1], thymio_angle]
 
-    if thymio_visible:
-        cam_get_targets(blurred_frame, show_options[0], show_options[1])
-        cam_get_obstacles(blurred_frame, thymio_radius, show_options[0], show_options[1])
+    cam_get_targets(blurred_frame, show_options[0], show_options[1])
+    cam_get_obstacles(blurred_frame, thymio_radius, show_options[0], show_options[1])
 
     if show_options[2]:
         for dilated_obstacle in dilated_obstacle_list:
@@ -200,7 +199,7 @@ def cam_get_targets(frame, show_contour = False, show_center = False):
 def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False):
     contours_green = get_color_contour(frame, "green")
 
-    area_obstacles = Polygon()
+    area_obstacles = MultiPolygon()
     dilated_obstacle_list = []
     for contour_green in contours_green:
         area = cv.contourArea(contour_green)
