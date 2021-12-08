@@ -9,13 +9,14 @@ from navigation import *
 optimal_path = []
 
 
-capture = cv.VideoCapture( 1 + cv.CAP_DSHOW) #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
+capture = cv.VideoCapture("filename.avi") #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
 capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
 stop_threads = False
 
 #for navigation
 convert_px_mm = 1
+objectif_number = 0
 
 #for display
 frame_limits = []
@@ -76,10 +77,10 @@ setup()
 
 #responsible to find the thymio on the camera and to display the important information on a video
 def cam_thread():
-    global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu
+    global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu, objectif_number
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
-    img_scale = 1
+    img_scale = 0.7
     #options on what to display
     show_contours = False
     show_polygones = False
@@ -89,7 +90,6 @@ def cam_thread():
     show_kalman_estimation = False
     show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation, show_optimal_path]
     optimal_path_px = list([int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[0]), int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[1])] for s in optimal_path)
-    print(optimal_path_px)
     while True:
         #read the image
         valid_image, frame = capture.read()
@@ -102,10 +102,11 @@ def cam_thread():
 
         #transform the esimated kalman position to pixel values
         kalman_est_pos = convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, [mu[0], mu[1]]) #converts kalman estimated pos to pixel pos
+        #kalman_est = [kalman_est_pos[0], kalman_est_pos[1], mu[4]]
         kalman_est = [kalman_est_pos[0], kalman_est_pos[1], mu[4]]
 
         #analyze the video image to find the thymio (if he's visible) and to draw some information depending on the options 
-        modified_frame, thymio_state, thymio_visible = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map, kalman_est, optimal_path_px)
+        modified_frame, thymio_state, thymio_visible = draw_analyze_frame(bounded_frame, show_option, dilated_obstacle_list, dilated_map, visibility_graph, vertices, kalman_est, optimal_path_px, objectif_number)
 
         #convert the found thymio from the video to position in millimeter
         thymio_pos_estim = convert_to_mm(frame_limits[1] - frame_limits[0], convert_px_mm, [thymio_state[0],thymio_state[1]]) #converts thymio pos to mm
@@ -116,7 +117,7 @@ def cam_thread():
         cv.imshow('Video', cv.resize(modified_frame, dim))
 
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(30)
+        key_pressed = cv.waitKey(20)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -157,14 +158,14 @@ def kalman_thread():
 
     mu_prev = mu
     sig_prev = sig_init
-
-
     
     startKal = 0
     endKal = T1
     while True:
+        thymio_visible = False
+
         u = speed_conv*np.array([motor_cmd[1], motor_cmd[0]])
-        meas = (thymio_cam_state[0], thymio_cam_state[1], thymio_cam_state[2])
+        meas = thymio_cam_state
         endKal = time.perf_counter() #Added to count time steps
         T1 = (endKal - startKal) #Added to count time steps 
         (mu,sig) = kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, thymio_visible)
@@ -181,24 +182,24 @@ threading.Thread(target=kalman_thread).start()
 #Mu position mm, speed mm/s, angle rad, vitesse angulaire
 
 async def navigation_thread():
-    global motor_cmd, mu, optimal_path
+    global motor_cmd, mu, optimal_path, objectif_number
     prev_error = 0
     T1 = 0.01
-    objectif_number = 0
     node = await client.wait_for_node()
-    #print(optimal_path)
+    
+    startKal = 0
+    endKal = T1
     while True:
         await node.lock()
         #pos_r, angle_r, obj_list, prev_err_pos, T, objectif_number
         pos_r = np.array([mu[0][0], mu[1][0]])
         angle_r = mu[4]#%(2*np.pi)
-        #print("ANGLE",angle_r)
-        #print("POS", pos_r)
+
+        endKal = time.perf_counter() #Added to count time steps
+        T1 = (endKal - startKal) #Added to count time steps 
         motor_cmd, prev_error, objectif_number = navigation(pos_r, angle_r, optimal_path, prev_error, T1, objectif_number)
+        startKal = time.perf_counter() #Added to count time steps
         node.send_set_variables(motors_command(motor_cmd))
-
-
-
 
         async def get_mot_comm(s):   
             await node.wait_for_variables({str(s)})
@@ -206,14 +207,8 @@ async def navigation_thread():
         motor_left=await get_mot_comm("motor.left.target")
         motor_right=await get_mot_comm("motor.right.target")
         motor_cmd=np.array([motor_left, motor_right])
-        #print(motors)
-        
-        #print(pos_r)
 
-
-
-        #print(motors_cmd)
-        time.sleep(T1)
+        time.sleep(0.01)
         if stop_threads:
             node.send_set_variables(motors_command(np.array([0,0])))
             await node.unlock()

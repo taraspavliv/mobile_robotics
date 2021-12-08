@@ -8,8 +8,8 @@ client = ClientAsync()
 THRESHOLD_POS=10    #Has to be tuned
 THRESHOLD_ANGLE=0.09
 SPEED=100
-P=2
-D=0.05
+P=1
+D=0.5
 
 
 #Navigation
@@ -52,9 +52,6 @@ def error(pos_r, dep, obj):
 def reach_obj(pos_r, obj, objectif_number, obj_list):    
             #next_obj(obj_list, objectif_number)
     if on_point(pos_r, obj):
-        print("YOUPI")
-
-        
         return True, objectif_number+1
     else:
         return False, objectif_number
@@ -108,6 +105,7 @@ def start_angle(angle_r, dep, obj):
         
         return motors
         #err_pos
+
 
 def speed_angle_err(angle_r, dep, obj):
     err_angle=angle_r-angle(dep,obj)

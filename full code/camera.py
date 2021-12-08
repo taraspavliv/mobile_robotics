@@ -3,7 +3,8 @@ import numpy as np
 from cv2 import cv2 as cv
 from matplotlib import pyplot as plt
 from shapely.geometry import MultiPolygon, Polygon 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
+
 
 def visible(a,b, polygon_obstacle, polygon_map):
     visible = 1
@@ -67,18 +68,6 @@ def get_color_contour(frame, color):
     elif color == "green":
         lower_color = np.array([45,60,0])#np.array([50,80,35])
         upper_color = np.array([90,140,140])#np.array([150,155,100])
-    # if color == "white":
-    #     lower_color = np.array([115,115,110])
-    #     upper_color = np.array([240,240,240])
-    # elif color == "blue":
-    #     lower_color = np.array([40,20,15])#np.array([50,30,20])
-    #     upper_color = np.array([115,65,70])#np.array([90,55,50])
-    # elif color == "red":
-    #     lower_color = np.array([55,35,105])
-    #     upper_color = np.array([130,110,210])
-    # elif color == "green":
-    #     lower_color = np.array([60,65,30])
-    #     upper_color = np.array([100,135,85])
     else:
         return [0]
     frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
@@ -87,9 +76,11 @@ def get_color_contour(frame, color):
     return contours
 
 
-def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, kalman_state, optimal_path_px):
+def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, visibility_graph, vertices, kalman_state, optimal_path_px, progress_idx):
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
 
+    #show_option 0: show contours
+    #show_option 1: show estimated contours
     _, map_contour = cam_get_bounded_frame(blurred_frame, show_options[0], show_options[1])
     thymio_pos, thymio_angle, thymio_visible, thymio_radius, _ = cam_locate_thymio(blurred_frame, show_options[0], show_options[1])
     thymio_state = [thymio_pos[0], thymio_pos[1], thymio_angle]
@@ -97,6 +88,7 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
     cam_get_targets(blurred_frame, show_options[0], show_options[1])
     cam_get_obstacles(blurred_frame, thymio_radius, show_options[0], show_options[1])
 
+    #show_option 2: show dilated polygones
     if show_options[2]:
         for dilated_obstacle in dilated_obstacle_list:
             x_obst, y_obst = dilated_obstacle.exterior.xy
@@ -107,35 +99,48 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
         dilated_map_poly = list((int(point[0]),int(point[1])) for point in list(zip(x_map, y_map)))
         draw_polygone(blurred_frame, dilated_map_poly, "white")
 
+    #show_option 3: show visibility graph
+    if show_options[3]:
+        for i in visibility_graph:
+            for j in visibility_graph[i]:
+                cv.line(blurred_frame, [int(vertices[i][0]), int(vertices[i][1])] , [int(vertices[j[0]][0]), int(vertices[j[0]][1])], (100,100,100), 2)
+                #print(vertices[i], vertices[j[0]])
+
+    #show_option 5: show optimal path, and the progress on it
+    if show_options[5]:
+        draw_path(blurred_frame, optimal_path_px, progress_idx)
+
+    #show_option 4: show kalman estimated position (drawn last to be on top)
     if show_options[4]:
         kalman_pos = (kalman_state[0], kalman_state[1])
         cv.circle(blurred_frame, kalman_pos, 7, (255, 0, 255), -1)
-        print(kalman_state)
         cv.line(blurred_frame, kalman_pos, [int(kalman_pos[0] + 30*np.cos(kalman_state[2])), int(kalman_pos[1] - 30*np.sin(kalman_state[2]))], (255, 0, 255), 2)
-
-    if show_options[5]:
-        draw_polygone(blurred_frame, optimal_path_px, "yellow", False)
 
     return blurred_frame, thymio_state, thymio_visible
 
 
-def draw_polygone(frame, polygone_points, color, closed = True):
+def draw_polygone(frame, polygone_points, color):
     if color == "white":
         color_RGB = (255,255,255)
     elif color == "green":
         color_RGB = (0,255,0)
     elif color == "blue":
         color_RGB = (255,0,0)
-    elif color == "yellow":
-        color_RGB = (0,255,255)
-
 
     for i in range(len(polygone_points)-1):
         cv.line(frame, polygone_points[i], polygone_points[i+1], color_RGB, 3)
-    
-    if closed:
-        cv.line(frame, polygone_points[len(polygone_points)-1], polygone_points[0], color_RGB, 3)
+    cv.line(frame, polygone_points[i+1], polygone_points[0], color_RGB, 3)
 
+
+def draw_path(frame, path, progress_idx):
+    color_to_travel = (0,255,255) #yellow
+    color_traveled = (255,255,0) #cyan
+
+    for i in range(progress_idx):
+        cv.line(frame, path[i], path[i+1], color_traveled, 3)
+
+    for i in range(progress_idx,len(path)-1):
+        cv.line(frame, path[i], path[i+1], color_to_travel, 3)
 
 def cam_get_bounded_frame(frame, show_contour = False, show_polygone = False):
     contours_white = get_color_contour(frame, "white")
@@ -185,7 +190,11 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
                 box = cv.boxPoints((rect_cent, (rect_width, rect_height), rect_angle))
                 box_points = list((int(point[0]),int(point[1])) for point in box)
                 draw_polygone(frame,box_points,"blue")
-            thymio_angle = np.arctan2(center[1] - rect_cent[1],rect_cent[0] - center[0]) #is in rad
+            #takes the angle from the rectangle framing the thymio that is the closest to the noisy angle
+            noisy_angle = np.arctan2(center[1] - rect_cent[1],rect_cent[0] - center[0]) #is in rad
+            possible_angles = np.array(list((-rect_angle + s*90.)*pi/180. for s in range(4)))
+            angles_errors = list(abs(np.arctan2(np.sin(noisy_angle - poss_angle), np.cos(noisy_angle - poss_angle))) for poss_angle in possible_angles)
+            thymio_angle = possible_angles[np.argmin(angles_errors)]
     thymio_visible = True
 
     if blue_zones_counter == 0:
@@ -218,6 +227,7 @@ def cam_get_targets(frame, show_contour = False, show_center = False):
                 cv.circle(frame, (cx, cy), 7, (0,0,255), -1)
 
     return target_list
+
 
 
 def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False):
@@ -258,6 +268,17 @@ def convert_to_mm(y_axis_size, scale, coords_px):
 def convert_to_px(y_axis_size, scale, coords_mm):
     return [int(coords_mm[0]/scale), int(y_axis_size-coords_mm[1]/scale)]
 
+def reachable_targets(targets_list,dilated_map,dilated_obstacle_list):
+    for target in targets_list:
+        if not Point(target).within(dilated_map):
+            targets_list.remove(target)
+        else:
+          for x in dilated_obstacle_list:
+             if Point(target).within(x):
+                 targets_list.remove(target)
+
+    return targets_list
+
 def object_detection(frame):
     #blur image to have less noise
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
@@ -274,5 +295,8 @@ def object_detection(frame):
     targets_list = cam_get_targets(bounded_frame)
     #locate the obstacles
     obstacles_list, dilated_obstacle_list  = cam_get_obstacles(bounded_frame, thymio_radius)
+    #select only reachable targets
+    targets_list = reachable_targets(targets_list,dilated_map,dilated_obstacle_list)
+
 
     return thymio_state,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits, scale_mm
