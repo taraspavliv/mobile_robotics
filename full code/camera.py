@@ -156,7 +156,7 @@ def cam_get_bounded_frame(frame, show_contour = False, show_polygone = False):
         cv.drawContours(frame[frame_limits[0]: frame_limits[1], frame_limits[2]: frame_limits[3]], contour, -1, (255,255,255),3)
     
     if show_polygone:
-        white_pts = pts_white = np.squeeze(polygon(contour))
+        white_pts = np.squeeze(polygon(contour))
         draw_polygone(frame, white_pts, "white")
 
     return frame_limits, contour

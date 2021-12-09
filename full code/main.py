@@ -9,7 +9,7 @@ from navigation import *
 optimal_path = []
 
 
-capture = cv.VideoCapture("filename.avi") #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
+capture = cv.VideoCapture("TESTA.mp4") #"https://192.168.1.156:8080" 1 + cv.CAP_DSHOW
 capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
 stop_threads = False
@@ -117,7 +117,7 @@ def cam_thread():
         cv.imshow('Video', cv.resize(modified_frame, dim))
 
         #keys to toggle shown information options
-        key_pressed = cv.waitKey(20)
+        key_pressed = cv.waitKey(700)
         if key_pressed == ord('q'):
             show_contours = not show_contours
         if key_pressed == ord('w'):
@@ -186,7 +186,7 @@ async def navigation_thread():
     prev_error = 0
     T1 = 0.01
     node = await client.wait_for_node()
-    
+
     startKal = 0
     endKal = T1
     while True:
