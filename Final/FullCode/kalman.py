@@ -1,7 +1,7 @@
 """
 kalman.py
 
-This file has all the functions to store the 
+This file has all the functions to predict the state of the thymio base on the camera measurements and on the commands sent to the thymio
 """
 import numpy as np
 import math
@@ -34,9 +34,9 @@ def Gjacobian(theta, m1 ,m2, T1):
     :param theta: the last thymio orienation estimation
     :param m1: motor commands from left motor
     :param m2: motor commands from right motor
-    :param T1: half the distance between the wheels
+    :param T1: the time step between two estimations
 
-    :return G: The new predicted state
+    :return G: The jacobian of the predicted state
     """
     G = np.array([[0.,0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     G[0,0] = 1
