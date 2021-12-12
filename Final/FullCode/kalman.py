@@ -1,17 +1,23 @@
-#Starting with a Kalman using the camera and the motor commands only
+"""
+kalman.py
+
+This file has all the functions to store the 
+"""
 import numpy as np
 import math
 
 #Next two steps depend on model only
-
 def motModel(x, u, T1, r):
-    """Input:
-    * previous state x
-    * inputs, motor commands u
-    * Time step T1
-    * Thymio radius r
-    Output:
-    * Matrix storing the new predicted state g"""
+    """
+    This function return the matrix representing the motion model
+
+    :param x: the previous known state of x
+    :param u: the motor commands that are applied on the thymio
+    :param T1: the time step between two estimations
+    :param r: half the distance between the wheels
+
+    :return g: The new predicted state
+    """
     g = np.array([0., 0., 0., 0., 0., 0.]) #just initializing a 2D array
     g[0] = (x[0] + T1*math.cos(x[4])*(u[0] + u[1])/2)
     g[1] = x[1] + T1*math.sin(x[4])*(u[0] + u[1])/2
@@ -22,12 +28,16 @@ def motModel(x, u, T1, r):
     return g
 
 def Gjacobian(theta, m1 ,m2, T1):
-    """Input:
-    * current angle theta
-    * inputs, motor commands m1 and m2
-    * Time step T1
-    Output:
-    * Matrix storing the jacobian G at the current iteration"""
+    """
+    This function calculates the jacobian G based
+
+    :param theta: the last thymio orienation estimation
+    :param m1: motor commands from left motor
+    :param m2: motor commands from right motor
+    :param T1: half the distance between the wheels
+
+    :return G: The new predicted state
+    """
     G = np.array([[0.,0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     G[0,0] = 1
     G[1,1] = 1
@@ -38,14 +48,17 @@ def Gjacobian(theta, m1 ,m2, T1):
     G[4,4] = 1
     return G
 
-#Next two steps depend on measurements
 
+#Next two steps depend on measurements
 def measModel(x, camState):
-    """Input:
-    * current predicted state x
-    * the state of the camera camstate
-    Output:
-    * Matrix storing the measurements"""
+    """
+    This function returns the measurement model based on the state estimation
+
+    :param x: the last state estimation
+    :param camState: a boolean to know if the camera sees the thymio
+
+    :return h: the model of the measurement
+    """
     h = np.array([0.,0.,0.])
     h[0] = x[0]
     h[1] = x[1]
@@ -57,10 +70,13 @@ def measModel(x, camState):
     return h
 
 def Hjacobian(camState):
-    """Input:
-    * camera state camstate
-    Output:
-    * Matrix storing the jacobian of the measurement model"""
+    """
+    This function returns the jacobian of the model h
+
+    :param camState: a boolean to know if the camera sees the thymio
+
+    :return H: the jacobian of the measurement model
+    """
     H = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     H[0,0] = 1
     H[1,1] = 1
@@ -72,19 +88,22 @@ def Hjacobian(camState):
     return H
 
 def kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, camState):
-    """Input:
-    * previous state mu_prev
-    * previous variance sig_prev
-    * inputs, motor commands u
-    * camera measurements meas
-    * Time step T1
-    * Thymio radius r
-    * incertitude matrix R
-    * incertitude matrix Q
-    * camera state camstate
-    Output:
-    * New state estimation
-    * New variance"""
+    """
+    This is the main function of the kalman filter, where is updates the estimated state based on the last state and the commands and measurement
+
+    :param mu_prev: the previous state estimation
+    :param sig_prev: the previous variance estimation
+    :param u: the commands applied on the motors
+    :param meas: the camera measurements (position x,y and orientation)
+    :param T1: the time step from the last state estimation
+    :param r: half the distance between the wheels 
+    :param R: state incertitude matrix
+    :param Q: measurement incertitude matrix
+    :param camState: a boolean to know if the camera sees the thymio
+
+    :return mu_est_a_posteriori: the new state estimation
+    :return sig_est_a_posteriori: the new variance estimation
+    """
     meas[2] = meas[2]%(2*np.pi)
     #a priori estimations
     mu_est_a_priori = motModel(mu_prev,u,T1,r) #a priori estimation of position. mu_t = g(u,mu_t-1)
