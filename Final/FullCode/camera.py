@@ -1,11 +1,10 @@
 """
-Camera.py
+camera.py
 
 This file contains all the function that are useful for the computer vision going from detecting the map, obstacles,
 targets, and the robot to computing the visibility graph which can be used to determine the shortest path to visit all 
 the targets without collision. It also provides some useful visualization functions"
 """
-
 
 import numpy as np 
 from cv2 import cv2 as cv

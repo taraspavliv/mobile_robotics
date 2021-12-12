@@ -1,10 +1,11 @@
-import numpy as np
 """
 path_planning.py
 
 This file contains all the functions to go from the visibility graph, the vertices coordinates, the starting vertex and the target indices to a shortest path
 that starts at the starting vertex and goes to travels through all target vertices
 """
+
+import numpy as np
 
 def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
     """

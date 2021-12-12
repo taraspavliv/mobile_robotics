@@ -1,3 +1,11 @@
+"""
+main.py
+
+This file initializes the global variables, is doing the computer vision, the visibility graph,
+the path planning and starts the three threads for the camera, the kalman filter and the navigation.
+Overall, it is running the whole project.
+"""
+
 import threading
 import time
 import asyncio
@@ -36,6 +44,10 @@ thymio_visible = False
 stop_threads = False
 
 def setup():
+    """
+    setup is doing the computer vision and the path planning. It detects the obstacles, the objectives and the Thymio.
+    From this, it calculates the optimal path.
+    """
     global capture, convert_px_mm, optimal_path, frame_limits
     global visibility_graph, vertices, dilated_obstacle_list, dilated_map, mu
 
@@ -78,6 +90,9 @@ setup()
 
 #Responsible to find the thymio on the camera and to display important information on a video
 def cam_thread():
+    """
+    The cam_thread is responsible to find the thymio on the camera and to display important information on a video
+    """
     global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu, objectif_number
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
@@ -142,6 +157,9 @@ def cam_thread():
 threading.Thread(target=cam_thread).start()
 
 def kalman_thread():
+    """
+    The kalman_thread is responsible to update the position, the angle and the angular speed according to the camera and the odometry
+    """
     global mu, thymio_cam_state, motor_cmd, thymio_visible, stop_threads
 
     #Convert speed commands in mm/s
@@ -186,6 +204,9 @@ threading.Thread(target=kalman_thread).start()
 
 
 async def navigation_thread():
+    """
+    The navigation_thread is responsible to calculate the right motor commands to follow the optimal path and to send them to the thymio.
+    """
     global motor_cmd, mu, optimal_path, objectif_number
     #Initialisation step
     client = ClientAsync()
