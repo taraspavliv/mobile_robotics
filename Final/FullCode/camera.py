@@ -1,3 +1,12 @@
+"""
+Camera.py
+
+This file contains all the function that are useful for the computer vision going from detecting the map, obstacles,
+targets, and the robot to computing the visibility graph which can be used to determine the shortest path to visit all 
+the targets without collision. It also provides some useful visualization functions"
+"""
+
+
 import numpy as np 
 from cv2 import cv2 as cv
 from shapely.geometry import MultiPolygon, Polygon, LineString, Point
@@ -9,7 +18,17 @@ POLYGON_THRESHOLD = 0.005
 
 #Returns 
 def visible(a,b, polygon_obstacle, polygon_map):
-    visible = 1
+    """visible function determines if the robot can travel
+       between two points using a straigth line without leaving 
+       the map or touch an obstacle
+    :param a: origin point
+    :param b: destination point
+    :param polygon_obstacle: list of polygon representing the dilated obstacles
+    :param polygon_map: polygon representing the dilated map
+    :return visible: True if the line does not cross obstacles or leave map
+                     False otherwise
+    """
+    visible = True
     line = LineString([a,b])
     for x in polygon_obstacle:
         within_obstacle = line.within(x)
@@ -22,17 +41,38 @@ def visible(a,b, polygon_obstacle, polygon_map):
     return visible
 
 def distance(a,b):
+    """distance function compute the eucledean distance between two points
+    :param a: first point
+    :param b: second point
+    :return dist: eucledean distance between points a and b
+    """
     dist = np.linalg.norm(np.array(a)-np.array(b))
     return(dist)    
 
 def polygon(c):
+    """polygon function computes the polygon approximation of a curve
+    :param c: curve that we want to approximate
+    :return approx: approximation of the curve
+    """
     peri = cv.arcLength(c, True)
     approx = cv.approxPolyDP(c, POLYGON_THRESHOLD * peri, True)
     return approx
 
-# Returns dictionnary containing in the key the index of the vertex of interest 
-# and for the value, other vertices with distance that are valid paths for the robot
+
 def vis_graph(start,targets,obstacles,polygon_obstacle,polygon_map):
+    """vis_graph function computes the visibility graph based on the computer vision results
+     :param start: position of the robot
+     :param targets: list of positions of the targets
+     :param obstacles: list of vertices of the obstacles
+     :param polygon_obstacle: list of polygons of dilated obstacles
+     :param polygon_map: polygon of the dilated map
+     :return graph: dictionnary containing in the key the index of the vertex of interest 
+                     and for the value, other vertices with distance that are valid paths
+                     for the robot
+     :return start_idx: index of the robot vertex in vertices list
+     :return targets_idx_list: list of the indexes of the targets (based on vertices list)
+     :return vertices: List of all vertices, robot position, vertices of obstacles, and targets
+     """
     graph = {}
     start_idx = 0
     obstacles = [item for sublist in obstacles for item in sublist]
@@ -58,8 +98,15 @@ def vis_graph(start,targets,obstacles,polygon_obstacle,polygon_map):
     return graph, start_idx, targets_idx_list, vertices
 
 def get_color_contour(frame, color):
+    """get_color_contour funtion convert the frame to HSV colour space
+       then, apply a mask for the color chosen and returns the contours
+       of this mask.
+    :param frame: frame of a video
+    :param color: color to be detected by the ranges
+    :return contours: contours of the mask of the colour detected
+    """
     if color == "white":
-        lower_color = np.array([0,0,128])
+        lower_color = np.array([0,0,128]) 
         upper_color = np.array([179,46,247])
     elif color == "blue":
         lower_color = np.array([96,63,62])
@@ -79,6 +126,20 @@ def get_color_contour(frame, color):
 
 
 def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, visibility_graph, vertices, kalman_state, optimal_path_px, progress_idx):
+    """draw_analyze_frame helps to visualize the processing of the frame
+    :params frame: frame on which the computer vision is done
+    :params show_options: different drawing options
+    :params dilated_obstacle_list: list of the dilated obstacles
+    :params dilated_map: the dilated map
+    :params visibility_graph: dictionnary containing the visibility graph
+    :params vertices: all vertices (robot position, targets, vertices of dilated polygon obstacles)
+    :params kalman_state: pose of the robot (position and angle) estimated by the kalman filter
+    :params optimal_path_px: vertices of the shortest path to visit all the targets
+    :params progress_idx: vertex index of the path reached by the robot
+    :return blurred_frame: frame on which we applied a gaussian blur to cancel noise
+    :return thymio_state: robot position and angle
+    :return thymio_visible: boolean set to true if the camera detects the robot
+    """
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
 
     #show_option 0: show contours
@@ -125,6 +186,11 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
 
 
 def draw_polygon(frame, polygon_points, color):
+    """draw_polygon function draws polygon on the frame
+    :params frame: frame on which we do the computer vision tasks
+    :params polygon_points: vertices of the polygon
+    :params color: color chosen for plotting the polygon
+    """
     if color == "white":
         color_RGB = (255,255,255)
     elif color == "green":
@@ -138,6 +204,12 @@ def draw_polygon(frame, polygon_points, color):
 
 
 def draw_path(frame, path, progress_idx):
+    """draw_path function draws the shortest path, using one colour for the 
+       part of the path traveled and another one for the rest of the path
+    :params frame: frame on which we do the computer vision tasks
+    :params path: vertices of the shortest path
+    :params progress_idx: vertex index of the path reached by the robot
+    """
     color_to_travel = (0,255,255) #yellow
     color_traveled = (255,255,0) #cyan
 
@@ -148,6 +220,14 @@ def draw_path(frame, path, progress_idx):
         cv.line(frame, path[i], path[i+1], color_to_travel, 3)
 
 def cam_get_bounded_frame(frame, show_contour = False, show_polygon = False):
+    """cam_get_bounded_frame function finds the contour of the map and compute the frame 
+       limits in order to crop it later.
+    :params frame: frame on which we do the computer vision tasks
+    :params show_contour: drawing option for displaying the contours
+    :params show_polygon: drawing option for displaying the polygon
+    :return frame_limits: rectangle bounding the map
+    :return contour: contour of the map
+    """
     contours_white = get_color_contour(frame, "white")
 
     contour = max(contours_white, key = cv.contourArea)
@@ -168,6 +248,16 @@ def cam_get_bounded_frame(frame, show_contour = False, show_polygon = False):
 
 
 def cam_locate_thymio(frame, show_contour = False, show_circle = False):
+    """cam_locate_thymio function detects the thymio position and angle
+    :params frame: frame on which we do the computer vision tasks
+    :params show_contour: option for displaying the contour of the thymio
+    :params show_circle: option for displaying the minimum enclosing circle of the contour
+    :return thymio_pos: position of the center of the minimum enclosing circle
+    :return thymio_angle: angle of the thymio based on the minimum area rectangle enclosing the contour
+    :return thymio_visible: Boolean set to true if the camera detects the robot
+    :return radius: radius of the minimum enclosing circle for the robot's contour
+    :return scale_mm: scale for conversion to pixels to mm [mm/pixel]
+    """
     contours_blue = get_color_contour(frame, "blue")
 
     max_blue_area = 0
@@ -209,12 +299,24 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
 
 
 def cam_get_contour(map_contour, radius):
+    """cam_get_contour function approximates the map contour as a polygon and dilates it towards its interior by the robot's radius
+    :params map_contour: contour of the map
+    :params radius: radius of the robot in pixels
+    :return map_contour_poly: polygon approximating the map contour
+    :return dilated_map: dilated map_contour_poly by the robots radius towards its interior
+    """
     map_contour_poly = Polygon(np.squeeze(polygon(map_contour)))
     dilated_map = map_contour_poly.buffer(-radius, join_style=3 ,single_sided=True)
     return map_contour_poly, dilated_map
 
 
 def cam_get_targets(frame, show_contour = False, show_center = False):
+    """cam_get_targets function detects the targets, and stores their centroid
+    :params frame: frame on which we do the computer vision tasks
+    :params show_contour: drawing option for the contour
+    :params show_center: drawing option of the centroid of the targets
+    :return target_list: list of the centroids coordinates of the targets
+    """
     contours_red = get_color_contour(frame, "red")
 
     target_list = []
@@ -236,6 +338,14 @@ def cam_get_targets(frame, show_contour = False, show_center = False):
 
 
 def cam_get_obstacles(frame, radius, show_contour = False, show_polygon = False):
+    """cam_get_obstacles function detects obstacles and dilate them by the robot's radius
+    :params frame: frame on which we do the computer vision tasks
+    :params radius: radius of the robot in pixels
+    :params show_contour: drawing option for contours
+    :params show_polygon: drawing option for polygons
+    :return obstacles_list: list of vertices of the obstacles
+    :return dilated_obstacle_list: list of polygons of dilated obstacles
+    """
     contours_green = get_color_contour(frame, "green")
 
     area_obstacles = MultiPolygon()
@@ -268,12 +378,31 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygon = False)
 
 
 def convert_to_mm(y_axis_size, scale, coords_px):
+    """convert_to_mm function converts pixels to mm and invert y axis
+    :params y_axis_size: width of the frame 
+    :params scale: scale [mm/pixel]
+    :params coords_px: coordinates in pixels
+    :return: coordinates in mm
+    """
     return [coords_px[0]*scale, (y_axis_size-coords_px[1])*scale]
 
 def convert_to_px(y_axis_size, scale, coords_mm):
+    """convert_to_px function convert mm to pixels and invert y axis
+    :params y_axis_size: width of the frame 
+    :params scale: scale [mm/pixel]
+    :params coords_mm: coordinates in mm
+    :return: coordinates in pixels
+    """
     return [int(coords_mm[0]/scale), int(y_axis_size-coords_mm[1]/scale)]
 
 def reachable_targets(targets_list,dilated_map,dilated_obstacle_list):
+    """reachable_targets function gets the targets that are in the dilated map and
+       outside of the dilated obstacles
+    :params targets_list: list of all the detected targets
+    :params dilated_map: polygon of the dilated map
+    :params dilated_obstacle_list: list of dilated polygons
+    :return targets_list: targets list updated with only reachable targets
+    """
     for target in targets_list:
         if not Point(target).within(dilated_map):
             targets_list.remove(target)
@@ -285,6 +414,16 @@ def reachable_targets(targets_list,dilated_map,dilated_obstacle_list):
     return targets_list
 
 def object_detection(frame):
+    """object_detection_function do all the computer vision tasks using the other functions
+    :params frame: frame on which we do the computer vision tasks
+    :return thymio_state: robot position and angle
+    :return targets_list : list of the centroids of the reachable targets
+    :return obstacles_list : list of the obstacles
+    :return dilated_obstacle_list : list of the obstacles dilated by the robot's radius
+    :return dilated_map : map dilated by the robot's radius
+    :return frame_limits : coordinates of the cropped frame based on the rectangle bounding the map
+    :return scale_mm : scale to convert from pixels to mm [mm/pixel]
+    """
     #blur image to have less noise
     blurred_frame = cv.GaussianBlur(frame, (5,5), cv.BORDER_DEFAULT)
     #find the map boundaries
@@ -302,6 +441,5 @@ def object_detection(frame):
     obstacles_list, dilated_obstacle_list  = cam_get_obstacles(bounded_frame, thymio_radius)
     #select only reachable targets
     targets_list = reachable_targets(targets_list,dilated_map,dilated_obstacle_list)
-
 
     return thymio_state,targets_list,obstacles_list,dilated_obstacle_list,dilated_map, frame_limits, scale_mm
