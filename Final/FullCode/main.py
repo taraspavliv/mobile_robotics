@@ -61,7 +61,7 @@ def setup():
     distance_array, path_array = create_distance_path_matrix(visibility_graph,start_idx, targets_idx_list)
 
     #Calculate the sortest path to go to all targets from start positon
-    total_distance, targets_idx_order = shortest_path(start_idx, np.array([start_idx]), distance_array)
+    total_distance, targets_idx_order = shortest_path(0, np.array([0]), distance_array)
 
     #Build the optimal path coordinates (in pixels)
     optimal_path_px = reconstruct_optimal_path(path_array, targets_idx_order, vertices)
