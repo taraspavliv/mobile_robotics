@@ -6,6 +6,13 @@ import math
 
 #x is the robot estimation, u are the commands, T1 the time step, r is half the distance between the wheels
 def motModel(x, u, T1, r):
+"""Input:
+* previous state x
+* inputs, motor commands u
+* Time step T1
+* Thymio radius r
+Output:
+* Matrix storing the new predicted state g"""
     g = np.array([0., 0., 0., 0., 0., 0.]) #just initializing a 2D array
     g[0] = (x[0] + T1*math.cos(x[4])*(u[0] + u[1])/2)
     g[1] = x[1] + T1*math.sin(x[4])*(u[0] + u[1])/2
@@ -17,6 +24,12 @@ def motModel(x, u, T1, r):
 
 #m1 and m2 are motor commands, theta is the current camer estimation, T1 is the time step
 def Gjacobian(theta, m1 ,m2, T1):
+"""Input:
+* current angle theta
+* inputs, motor commands m1 and m2
+* Time step T1
+Output:
+* Matrix storing the jacobian G at the current iteration"""
     G = np.array([[0.,0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     G[0,0] = 1
     G[1,1] = 1
@@ -30,6 +43,11 @@ def Gjacobian(theta, m1 ,m2, T1):
 #Next two steps depend on measurements
 
 def measModel(x, camState):
+"""Input:
+* current predicted state x
+* the state of the camera camstate
+Output:
+* Matrix storing the measurements"""
     h = np.array([0.,0.,0.])
     h[0] = x[0]
     h[1] = x[1]
@@ -41,6 +59,10 @@ def measModel(x, camState):
     return h
 
 def Hjacobian(camState):
+"""Input:
+* camera state camstate
+Output:
+* Matrix storing the jacobian of the measurement model"""
     H = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     H[0,0] = 1
     H[1,1] = 1
@@ -52,6 +74,19 @@ def Hjacobian(camState):
     return H
 
 def kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, camState):
+"""Input:
+* previous state mu_prev
+* previous variance sig_prev
+* inputs, motor commands u
+* camera measurements meas
+* Time step T1
+* Thymio radius r
+* incertitude matrix R
+* incertitude matrix Q
+* camera state camstate
+Output:
+* New state estimation
+* New variance"""
     meas[2] = meas[2]%(2*np.pi)
     #a priori estimations
     mu_est_a_priori = motModel(mu_prev,u,T1,r) #a priori estimation of position. mu_t = g(u,mu_t-1)
