@@ -80,7 +80,7 @@ def cam_thread():
     global capture, convert_px_mm, thymio_cam_state, thymio_visible, frame_limits, mu, objectif_number
     global optimal_path, visibility_graph, vertices, dilated_obstacle_list, dilated_map, stop_threads
 
-    img_scale = 2
+    img_scale = 1
     #options on what to display
     show_contours = False
     show_polygones = False
@@ -90,6 +90,21 @@ def cam_thread():
     show_kalman_estimation = False
     show_option = [show_contours, show_polygones, show_dilated_polygones, show_visibility_graph, show_kalman_estimation, show_optimal_path]
     optimal_path_px = list([int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[0]), int(convert_to_px(frame_limits[1] - frame_limits[0], convert_px_mm, s)[1])] for s in optimal_path)
+    
+    # # If we want to save the video
+    # frame_width = int(capture.get(3))
+    # frame_height = int(capture.get(4))
+    
+    # size = (frame_width, frame_height)
+    
+    # # Below VideoWriter object will create
+    # # a frame of above defined The output 
+    # # is stored in 'filename.avi' file.
+    # result = cv.VideoWriter('filename.mp4', 
+    #                         0x7634706d,
+    #                         10, size)
+    
+    
     while True:
 
         #read the image
@@ -97,6 +112,11 @@ def cam_thread():
         if stop_threads or not valid_image:
             stop_threads = True
             break
+
+      
+        # # Writing on the saved video
+        # result.write(frame)
+
 
         #cut borders of the video to display only the terrain
         bounded_frame = frame[frame_limits[0]: frame_limits[1], frame_limits[2]: frame_limits[3]]

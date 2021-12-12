@@ -13,7 +13,7 @@ def motModel(x, u, T1, r):
     g[2] = math.cos(x[4])*(u[0] + u[1])/2
     g[3] = math.sin(x[4])*(u[0] + u[1])/2
     g[4] = x[4] + T1*(u[0] - u[1]) / (2*r)
-    g[4]=g[4]%(np.pi*2)
+    # g[4]=g[4]%(np.pi*2)
     g[5] = (u[0] - u[1]) / (2*r)
     return g
 
@@ -56,6 +56,13 @@ def kalmanFilter(mu_prev, sig_prev, u, meas, T1, r, R, Q, camState):
     meas[2] = meas[2]%(2*math.pi)
     #a priori estimations
     mu_est_a_priori = motModel(mu_prev,u,T1,r) #a priori estimation of position. mu_t = g(u,mu_t-1)
+    
+    k = math.floor(mu_est_a_priori[4]/(2*math.pi))
+    possible_meas = np.array(list((meas[2] + 2*math.pi*(k+i)) for i in range(-1,2)))
+    angles_errors = list(abs(mu_est_a_priori[4] - poss_meas) for poss_meas in possible_meas)
+    meas_angle = possible_meas[np.argmin(angles_errors)]
+    meas[2] = meas_angle
+
     theta = mu_est_a_priori[4]
     #print('theta a priori', theta)
     m1 = u[0]

@@ -116,8 +116,6 @@ def draw_analyze_frame(frame, show_options, dilated_obstacle_list, dilated_map, 
         cv.circle(blurred_frame, kalman_pos, 7, (255, 0, 255), -1)
         cv.line(blurred_frame, kalman_pos, [int(kalman_pos[0] + 30*np.cos(kalman_state[2])), int(kalman_pos[1] - 30*np.sin(kalman_state[2]))], (255, 0, 255), 2)
 
-    return blurred_frame, thymio_state, thymio_visible
-
 
 def draw_polygone(frame, polygone_points, color):
     if color == "white":
@@ -209,7 +207,7 @@ def cam_locate_thymio(frame, show_contour = False, show_circle = False):
 
 def cam_get_contour(map_contour, radius):
     map_contour_poly = Polygon(np.squeeze(polygon(map_contour)))
-    dilated_map = map_contour_poly.buffer(-radius, join_style=3 ,single_sided=True)
+    dilated_map = map_contour_poly.buffer(-radius, join_style=2,single_sided=True)
     return map_contour_poly, dilated_map
 
 
@@ -244,7 +242,7 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygone = False
         if area > 1000:
             pts = np.squeeze(polygon(contour_green))
             pol = Polygon(pts)
-            dilated_obstacle = pol.buffer(radius, join_style=3 ,single_sided=True)
+            dilated_obstacle = pol.buffer(radius, join_style=2 ,single_sided=True)
             dilated_obstacle_list.append(dilated_obstacle)
             area_obstacles = area_obstacles.union(dilated_obstacle)
             if show_contour:
