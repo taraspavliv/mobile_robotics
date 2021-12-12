@@ -4,7 +4,7 @@ import math
 
 #Next two steps depend on model only
 
-#x is the robot estimation, u are the commands, T1 the time step, r the radius of the robot
+#x is the robot estimation, u are the commands, T1 the time step, r is half the distance between the wheels
 def motModel(x, u, T1, r):
     g = np.array([0., 0., 0., 0., 0., 0.]) #just initializing a 2D array
     g[0] = (x[0] + T1*math.cos(x[4])*(u[0] + u[1])/2)

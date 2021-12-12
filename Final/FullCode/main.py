@@ -149,7 +149,7 @@ def kalman_thread():
     #Variance initialization
     sig_init = np.array([[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.]])
     T1 = 0.03 #time discretization: 33Hz
-    r = 47 # radius of the thymio in mm
+    r = 47 # half of the distance between the wheel
 
     #Uncertainty on state
     R = np.array([[0.01,0.,0.,0.,0.,0.], \
