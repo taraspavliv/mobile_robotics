@@ -335,7 +335,7 @@ def cam_get_contour(map_contour, radius):
     :return dilated_map: dilated map_contour_poly by the robots radius towards its interior
     """
     map_contour_poly = Polygon(np.squeeze(polygon(map_contour)))
-    dilated_map = map_contour_poly.buffer(-radius, join_style=3 ,single_sided=True)
+    dilated_map = map_contour_poly.buffer(-radius, join_style=2 ,single_sided=True)
     return map_contour_poly, dilated_map
 
 
@@ -390,7 +390,7 @@ def cam_get_obstacles(frame, radius, show_contour = False, show_polygon = False)
         if area > MIN_AREA:
             pts = np.squeeze(polygon(contour_green))
             pol = Polygon(pts)
-            dilated_obstacle = pol.buffer(radius, join_style=3 ,single_sided=True)
+            dilated_obstacle = pol.buffer(radius, join_style=2 ,single_sided=True)
             dilated_obstacle_list.append(dilated_obstacle)
             area_obstacles = area_obstacles.union(dilated_obstacle)
             if show_contour:
