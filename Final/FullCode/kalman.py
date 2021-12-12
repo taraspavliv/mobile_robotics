@@ -29,7 +29,7 @@ def motModel(x, u, T1, r):
 
 def Gjacobian(theta, m1 ,m2, T1):
     """
-    This function calculates the jacobian G based
+    This function calculates the jacobian G based on the motor commands and the thymio orientation.
 
     :param theta: the last thymio orienation estimation
     :param m1: motor commands from left motor

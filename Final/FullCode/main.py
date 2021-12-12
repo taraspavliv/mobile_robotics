@@ -17,7 +17,7 @@ from kalman import *
 from navigation import *
 
 #For the camera
-capture = cv.VideoCapture(1 + cv.CAP_DSHOW)
+capture = cv.VideoCapture("final.mp4") #For the real setup, replace this line by: capture = cv.VideoCapture(1 + cv.CAP_DSHOW)
 capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
 ## Global variables because shared between threads
