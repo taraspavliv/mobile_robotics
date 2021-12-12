@@ -1,6 +1,9 @@
 import numpy as np
 
 def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
+    """
+    
+    """
     #calulates the shortest distance, and saves the path to have this distance
     path = []
 
@@ -37,6 +40,14 @@ def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
 
 
 def create_distance_path_matrix(visibility_graph,start_idx,targets_idx_list):
+    """Input:
+* Visibility graph
+* Start index
+* Target indices
+
+Output:
+* Matrix storing the distance between all points of interest
+* Matrix storing the path between all points of interest"""
     #we treat start as an objective, from which we start
     targets_idx_list.insert(0, start_idx)
 
@@ -59,6 +70,14 @@ def create_distance_path_matrix(visibility_graph,start_idx,targets_idx_list):
 
 
 def shortest_path(start_local_idx, visited_idx_list, distance_array):
+    """Input:
+* The starting index
+* The list of already visited indices (this list only contains the starting index on the first call)
+* The distance matrix calulated previously
+
+Output:
+* The shortest distance to go through all indices that aren't yet visited
+* The index order to follow to have this shortest distance"""
     nb_points = np.size(distance_array,0) #number of points to go through + 1 for the starting point
 
     distance = np.Inf #value to optimize
@@ -85,6 +104,14 @@ def shortest_path(start_local_idx, visited_idx_list, distance_array):
 
 
 def reconstruct_optimal_path(path_array, targets_idx_order, vertices):
+    """
+Input:
+* The path matrix calculated in the "create_distance_path_matrix" function
+* The targets index order given by the "shortest_path" function
+* Vertices array which gives the coordinates based on the vertex index
+
+Output:
+* The list of coordinates to follow to go through all targets in the shortest path"""
     optimal_path = []
     for i in range(len(targets_idx_order)-1):
         for j in range(len(path_array[int(targets_idx_order[i])][int(targets_idx_order[i+1])])): #use the path matrix to reconstruct
