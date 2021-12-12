@@ -1,8 +1,21 @@
 import numpy as np
+"""
+path_planning.py
+
+This file contains all the functions to go from the visibility graph, the vertices coordinates, the starting vertex and the target indices to a shortest path
+that starts at the starting vertex and goes to travels through all target vertices
+"""
 
 def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
     """
-    
+    This algorithm finds the shortest distance and the associated path from one vertex to another in a graph
+
+    :idx_start: index of the starting vertex
+    :idx_end: index of the ending vertex
+    :visibility_graph: a graph (python dictionnary where keys = vertices and value = connected vertices and the corresponding distance)
+
+    :returns: -the shortest distance from the starting index to the ending in the visibility graph
+              -the path associated, which is a list of the indices of the vertices in the graph
     """
     #calulates the shortest distance, and saves the path to have this distance
     path = []
@@ -40,14 +53,16 @@ def dijkstra_aglorithm(idx_start, idx_end, visibility_graph):
 
 
 def create_distance_path_matrix(visibility_graph,start_idx,targets_idx_list):
-    """Input:
-* Visibility graph
-* Start index
-* Target indices
+    """
+    This function creates a distance and a path matrix, to have quick access to the shortest path between two targets or betweem the thymio and the target
 
-Output:
-* Matrix storing the distance between all points of interest
-* Matrix storing the path between all points of interest"""
+    :visibility_graph: a graph (python dictionnary where keys = vertices and value = connected vertices and the corresponding distance)
+    :start_idx: start index: the index of the vertex where the thymio is at the start
+    :targets_idx_list: targets indices list: a list of the indices of the vertices to go to
+
+    :returns: -a matrix that stores the distance between all pairs of points of interest (= start position + targets)
+              -a matrix that stores the associated shortest path
+    """
     #we treat start as an objective, from which we start
     targets_idx_list.insert(0, start_idx)
 
@@ -70,14 +85,19 @@ Output:
 
 
 def shortest_path(start_local_idx, visited_idx_list, distance_array):
-    """Input:
-* The starting index
-* The list of already visited indices (this list only contains the starting index on the first call)
-* The distance matrix calulated previously
+    """
+    This algorithm solves recursively a Travelling Salesman Problem, with the difference that the thymio doesn't return to the starting position.
+    Here we work with local indices, where the thymio is always at the index 0 and the targets are the following 1,2,3,...
 
-Output:
-* The shortest distance to go through all indices that aren't yet visited
-* The index order to follow to have this shortest distance"""
+    :start_local_idx: starting index, but it's not the same as the index in the visibility graph. On the first call of this function it should
+                      always be 0.
+    :visited_idx_list: visited index list: the list of the already visited indices
+    :distance_array: the matrix that has all the distance between all pairs of points of interest (= start position + targets)
+
+    :returns: -the shortest distance to follow go through all points of interest
+              -the order of indices to get this shortest distance /!\ these are "local" indices and are not the same as the indices in the 
+               visibility graph
+    """
     nb_points = np.size(distance_array,0) #number of points to go through + 1 for the starting point
 
     distance = np.Inf #value to optimize
@@ -105,13 +125,15 @@ Output:
 
 def reconstruct_optimal_path(path_array, targets_idx_order, vertices):
     """
-Input:
-* The path matrix calculated in the "create_distance_path_matrix" function
-* The targets index order given by the "shortest_path" function
-* Vertices array which gives the coordinates based on the vertex index
+    This function reconstructs the optimal path (as a list of coordinates), based on the order of local indices found by the function shortest_path and,
+    by the path matrix given by the function create_distance_path_matrix and by the list of vertices.
 
-Output:
-* The list of coordinates to follow to go through all targets in the shortest path"""
+    :path_array: the path matrix that gives the vertices to follow to connect two points of interest (= start position + targets)
+    :targets_idx_order: targets index order: the order/permutation in which the points of interest should be travelled through (where 0 is the thymio)
+    :vertices: vertices: an array that gives the coordinates of a point based on it's index
+
+    :returns: -optimal path: a list of coordinates to travel through all targets in the shortest path
+    """
     optimal_path = []
     for i in range(len(targets_idx_order)-1):
         for j in range(len(path_array[int(targets_idx_order[i])][int(targets_idx_order[i+1])])): #use the path matrix to reconstruct

@@ -1,6 +1,7 @@
 import threading
 import time
 import asyncio
+from tdmclient import ClientAsync
 
 from camera import *
 from path_planning import *
@@ -187,6 +188,7 @@ threading.Thread(target=kalman_thread).start()
 async def navigation_thread():
     global motor_cmd, mu, optimal_path, objectif_number
     #Initialisation step
+    client = ClientAsync()
     prev_error = 0
     T1 = 0.01 #time discretization: 100Hz
     node = await client.wait_for_node()

@@ -1,9 +1,6 @@
 import numpy as np
 from numpy.lib.function_base import angle
 
-from tdmclient import ClientAsync
-client = ClientAsync()
-
 
 THRESHOLD_POS=20    
 THRESHOLD_ANGLE=0.05
